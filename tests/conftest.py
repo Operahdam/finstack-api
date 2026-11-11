@@ -11,10 +11,17 @@ from app.main import app
 from app.models import Wallet, WalletTransaction
 
 
-TEST_DATABASE_URL = "postgresql+psycopg://finstack_user:222444@localhost:5432/finstack_test_db"
+TEST_DATABASE_URL = (
+    f"postgresql+psycopg://"
+    f"{os.getenv('DB_USER', 'finstack_user')}:"
+    f"{os.getenv('DB_PASSWORD', '222444')}@"
+    f"{os.getenv('DB_HOST', 'localhost')}:"
+    f"{os.getenv('DB_PORT', '5432')}/"
+    f"{os.getenv('DB_NAME', 'finstack_test_db')}"
+)
+
 if "finstack_test_db" not in TEST_DATABASE_URL:
     raise RuntimeError("Tests must use finstack_test_db")
-
 
 test_engine = create_engine(
     TEST_DATABASE_URL,
