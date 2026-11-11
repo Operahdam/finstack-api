@@ -47,6 +47,6 @@ jobs:
           DB_NAME: finstack_test_db
           DB_USER: finstack_user
           DB_PASSWORD: test_password
-          JWT_SECRET_KEY: ci-test-secret-key-for-github-actions-12345678901234567890
+          JWT_SECRET_KEY: 739faf34b0d5580b10fffa143e5885fe44fbbb775d22a4bc9636cbfc0837589d
         run: |
           pytest -v
