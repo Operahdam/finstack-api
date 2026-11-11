@@ -20,13 +20,20 @@ def lock_idempotency_key(db: Session, key: str):
     )
 
 
-def lock_wallets(db: Session, wallet_ids: list[UUID]):
+def lock_wallets(
+    db: Session,
+    wallet_ids: list[UUID],
+    user_id: UUID,
+):
     wallets = {}
 
     for wallet_id in sorted(set(wallet_ids), key=str):
         wallet = db.execute(
             select(Wallet)
-            .where(Wallet.id == wallet_id)
+            .where(
+                Wallet.id == wallet_id,
+                Wallet.user_id == user_id,
+            )
             .with_for_update()
         ).scalar_one_or_none()
 
@@ -37,13 +44,13 @@ def lock_wallets(db: Session, wallet_ids: list[UUID]):
 
     return wallets
 
-
 def create_transaction(
     db: Session,
     transaction_type: str,
     amount: Decimal,
     currency: str,
     idempotency_key: str,
+    user_id: UUID,
     source_id: UUID | None = None,
     destination_id: UUID | None = None,
 ):
@@ -79,8 +86,11 @@ def create_transaction(
             if wallet_id is not None
         ]
 
-        wallets = lock_wallets(db, wallet_ids)
-
+        wallets = lock_wallets(
+    		db,
+    		wallet_ids,
+    		user_id,
+	)
         source = wallets.get(source_id)
         destination = wallets.get(destination_id)
 
@@ -130,31 +140,43 @@ def create_transaction(
         raise
 
 
-def credit_wallet(db, wallet_id, amount, key):
+def credit_wallet(db, wallet_id, amount, key, user_id):
     return create_transaction(
         db,
         "CREDIT",
         amount,
         "NGN",
         key,
+        user_id=user_id,
         destination_id=wallet_id,
     )
 
 
-def debit_wallet(db, wallet_id, amount, key):
+def debit_wallet(db, wallet_id, amount, key, user_id):
     return create_transaction(
         db,
         "DEBIT",
         amount,
         "NGN",
         key,
+        user_id=user_id,
         source_id=wallet_id,
     )
 
 
-def transfer_funds(db, source_id, destination_id, amount, key):
+def transfer_funds(
+    db,
+    source_id,
+    destination_id,
+    amount,
+    key,
+    user_id,
+):
     if source_id == destination_id:
-        raise HTTPException(400, detail="Cannot transfer to same wallet")
+        raise HTTPException(
+            400,
+            detail="Cannot transfer to same wallet",
+        )
 
     return create_transaction(
         db,
@@ -162,14 +184,29 @@ def transfer_funds(db, source_id, destination_id, amount, key):
         amount,
         "NGN",
         key,
+        user_id=user_id,
         source_id=source_id,
         destination_id=destination_id,
     )
+def get_wallet_transactions(
+    db,
+    wallet_id,
+    user_id,
+    skip=0,
+    limit=20,
+):
+    wallet = db.execute(
+        select(Wallet).where(
+            Wallet.id == wallet_id,
+            Wallet.user_id == user_id,
+        )
+    ).scalar_one_or_none()
 
-
-def get_wallet_transactions(db, wallet_id, skip=0, limit=20):
-    if db.get(Wallet, wallet_id) is None:
-        raise HTTPException(404, detail="Wallet not found")
+    if wallet is None:
+        raise HTTPException(
+            404,
+            detail="Wallet not found",
+        )
 
     query = select(WalletTransaction).where(
         (WalletTransaction.source_wallet_id == wallet_id)
@@ -181,10 +218,11 @@ def get_wallet_transactions(db, wallet_id, skip=0, limit=20):
     )
 
     transactions = db.execute(
-        query.order_by(WalletTransaction.created_at.desc())
+        query.order_by(
+            WalletTransaction.created_at.desc()
+        )
         .offset(skip)
         .limit(limit)
     ).scalars().all()
 
     return transactions, total
-

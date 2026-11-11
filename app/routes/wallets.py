@@ -14,6 +14,9 @@ from app.services.wallet_service import create_wallet, get_wallet
 
 router = APIRouter(prefix="/wallets", tags=["Wallets"])
 
+from app.models.user import User
+from app.routes.auth import get_current_user
+
 
 @router.post(
     "",
@@ -23,16 +26,21 @@ router = APIRouter(prefix="/wallets", tags=["Wallets"])
 def create_new_wallet(
     wallet_data: WalletCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return create_wallet(db, wallet_data)
-
+    return create_wallet(
+        db,
+        wallet_data,
+        current_user.id,
+    )
 
 @router.get("/{wallet_id}", response_model=WalletResponse)
 def retrieve_wallet(
     wallet_id: UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    wallet = get_wallet(db, wallet_id)
+    wallet = get_wallet(db, wallet_id, current_user.id)
 
     if wallet is None:
         raise HTTPException(
@@ -42,13 +50,13 @@ def retrieve_wallet(
 
     return wallet
 
-
 @router.get("/{wallet_id}/balance", response_model=WalletBalance)
 def retrieve_wallet_balance(
     wallet_id: UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    wallet = get_wallet(db, wallet_id)
+    wallet = get_wallet(db, wallet_id, current_user.id)
 
     if wallet is None:
         raise HTTPException(

@@ -1,11 +1,13 @@
-
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from app.routes.transactions import router as transaction_router
+
 from app.database import get_db
+from app.routes.auth import router as auth_router
+from app.routes.transactions import router as transaction_router
 from app.routes.wallets import router as wallet_router
+
 
 app = FastAPI(
     title="FinStack API",
@@ -13,6 +15,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+# Register routers
+app.include_router(auth_router)
 app.include_router(transaction_router)
 app.include_router(wallet_router)
 
@@ -52,4 +57,3 @@ def readiness_check(db: Session = Depends(get_db)):
                 "database": "unavailable",
             },
         ) from exc
-

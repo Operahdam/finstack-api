@@ -1,10 +1,16 @@
 import uuid
 from datetime import datetime
-
-from sqlalchemy import CheckConstraint, DateTime, Numeric, String, func
-from sqlalchemy.orm import Mapped, mapped_column
-
 from decimal import Decimal
+
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
 
@@ -26,6 +32,12 @@ class Wallet(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True,
         default=uuid.uuid4,
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
 
     currency: Mapped[str] = mapped_column(
