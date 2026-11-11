@@ -22,7 +22,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Copy prepared dependencies
+# Install prepared dependencies
 COPY --from=builder /wheels /wheels
 
 RUN pip install --no-cache-dir --no-index --find-links=/wheels /wheels/* \
@@ -34,6 +34,10 @@ RUN groupadd --system appgroup \
 
 # Copy application code
 COPY --chown=appuser:appgroup app/ ./app/
+
+# Copy Alembic configuration and migrations
+COPY --chown=appuser:appgroup alembic.ini ./alembic.ini
+COPY --chown=appuser:appgroup migrations/ ./migrations/
 
 # Run application without root privileges
 USER appuser
