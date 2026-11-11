@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.database import get_db
 from app.routes.auth import router as auth_router
@@ -14,6 +15,7 @@ app = FastAPI(
     description="A Dockerized Fintech Wallet and Transaction Management API",
     version="1.0.0",
 )
+Instrumentator().instrument(app).expose(app)
 
 
 # Register routers
