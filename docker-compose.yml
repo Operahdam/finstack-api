@@ -6,9 +6,9 @@ services:
     restart: unless-stopped
 
     environment:
-      POSTGRES_DB: ${DB_NAME:?DB_NAME must be set}
-      POSTGRES_USER: ${DB_USER:?DB_USER must be set}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      POSTGRES_DB: ${DB_NAME:?finstack_db}
+      POSTGRES_USER: ${DB_USER:?finstack_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?222444}
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -36,9 +36,10 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: "5432"
-      DB_NAME: ${DB_NAME:?DB_NAME must be set}
-      DB_USER: ${DB_USER:?DB_USER must be set}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      DB_NAME: ${DB_NAME:?finstack_db}
+      DB_USER: ${DB_USER:?finstack_user}
+      DB_PASSWORD: ${DB_PASSWORD:?222444}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?e5b600af67299e8182c30fecba77f48871245a771626315cca45e198e3aa7185}
 
     ports:
       - "8001:8000"
