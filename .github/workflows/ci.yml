@@ -1,4 +1,3 @@
-
 name: FinStack CI
 
 on:
@@ -7,9 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  test-and-build:
+    name: Test and Build Docker Image
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     services:
       postgres:
@@ -40,6 +44,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Generate temporary JWT secret
+        run: |
+          echo "JWT_SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')" >> "$GITHUB_ENV"
+
       - name: Run tests
         env:
           DB_HOST: localhost
@@ -47,6 +55,9 @@ jobs:
           DB_NAME: finstack_test_db
           DB_USER: finstack_user
           DB_PASSWORD: test_password
-          JWT_SECRET_KEY: 739faf34b0d5580b10fffa143e5885fe44fbbb775d22a4bc9636cbfc0837589d
         run: |
           pytest -v
+
+      - name: Build Docker image
+        run: |
+          docker build -t finstack-api:${{ github.sha }} .

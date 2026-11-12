@@ -204,3 +204,76 @@ def test_transaction_pagination(client, auth_headers):
     assert response.status_code == 200
     assert len(response.json()["transactions"]) == 2
     assert response.json()["total"] == 3
+
+
+def test_multi_currency_credit_and_debit(client, auth_headers):
+    for currency in ["USD", "GBP", "EUR"]:
+        wallet_id = create_wallet(
+            client,
+            auth_headers,
+            currency,
+        )
+
+        credit_response = credit(
+            client,
+            wallet_id,
+            "100.00",
+            auth_headers,
+            f"{currency}-credit",
+        )
+
+        assert credit_response.status_code == 200
+        assert credit_response.json()["currency"] == currency
+
+        debit_response = debit(
+            client,
+            wallet_id,
+            "25.00",
+            auth_headers,
+            f"{currency}-debit",
+        )
+
+        assert debit_response.status_code == 200
+        assert debit_response.json()["currency"] == currency
+
+        assert balance(
+            client,
+            wallet_id,
+            auth_headers,
+        ) == Decimal("75.00")
+
+
+def test_transfer_between_different_currencies_rejected(
+    client,
+    auth_headers,
+):
+    source = create_wallet(client, auth_headers, "USD")
+    destination = create_wallet(client, auth_headers, "GBP")
+
+    credit_response = credit(
+        client,
+        source,
+        "100.00",
+        auth_headers,
+        "currency-transfer-credit",
+    )
+
+    assert credit_response.status_code == 200
+
+    response = client.post(
+        "/transactions/transfer",
+        params={"source_wallet_id": source},
+        json={
+            "amount": "50.00",
+            "destination_wallet_id": destination,
+        },
+        headers={
+            **auth_headers,
+            "Idempotency-Key": "currency-mismatch-transfer",
+        },
+    )
+
+    assert response.status_code == 400
+
+    assert balance(client, source, auth_headers) == Decimal("100.00")
+    assert balance(client, destination, auth_headers) == Decimal("0.00")

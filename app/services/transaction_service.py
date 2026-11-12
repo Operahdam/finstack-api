@@ -44,11 +44,11 @@ def lock_wallets(
 
     return wallets
 
+
 def create_transaction(
     db: Session,
     transaction_type: str,
     amount: Decimal,
-    currency: str,
     idempotency_key: str,
     user_id: UUID,
     source_id: UUID | None = None,
@@ -56,6 +56,34 @@ def create_transaction(
 ):
     try:
         lock_idempotency_key(db, idempotency_key)
+
+        wallet_ids = [
+            wallet_id
+            for wallet_id in (source_id, destination_id)
+            if wallet_id is not None
+        ]
+
+        wallets = lock_wallets(
+            db,
+            wallet_ids,
+            user_id,
+        )
+
+        source = wallets.get(source_id)
+        destination = wallets.get(destination_id)
+
+        if source and destination:
+            if source.currency != destination.currency:
+                raise HTTPException(
+                    400,
+                    detail="Wallet currencies must match",
+                )
+
+        currency = (
+            destination.currency
+            if destination
+            else source.currency
+        )
 
         existing = db.execute(
             select(WalletTransaction).where(
@@ -67,6 +95,7 @@ def create_transaction(
             same_request = (
                 existing.transaction_type == transaction_type
                 and existing.amount == amount
+                and existing.currency == currency
                 and existing.source_wallet_id == source_id
                 and existing.destination_wallet_id == destination_id
             )
@@ -79,29 +108,6 @@ def create_transaction(
 
             db.commit()
             return existing
-
-        wallet_ids = [
-            wallet_id
-            for wallet_id in (source_id, destination_id)
-            if wallet_id is not None
-        ]
-
-        wallets = lock_wallets(
-    		db,
-    		wallet_ids,
-    		user_id,
-	)
-        source = wallets.get(source_id)
-        destination = wallets.get(destination_id)
-
-        if source and source.currency != currency:
-            raise HTTPException(400, detail="Source currency mismatch")
-
-        if destination and destination.currency != currency:
-            raise HTTPException(400, detail="Destination currency mismatch")
-
-        if source and destination and source.currency != destination.currency:
-            raise HTTPException(400, detail="Wallet currencies must match")
 
         if transaction_type == "CREDIT":
             destination.balance += amount
@@ -145,7 +151,6 @@ def credit_wallet(db, wallet_id, amount, key, user_id):
         db,
         "CREDIT",
         amount,
-        "NGN",
         key,
         user_id=user_id,
         destination_id=wallet_id,
@@ -157,7 +162,6 @@ def debit_wallet(db, wallet_id, amount, key, user_id):
         db,
         "DEBIT",
         amount,
-        "NGN",
         key,
         user_id=user_id,
         source_id=wallet_id,
@@ -182,12 +186,13 @@ def transfer_funds(
         db,
         "TRANSFER",
         amount,
-        "NGN",
         key,
         user_id=user_id,
         source_id=source_id,
         destination_id=destination_id,
     )
+
+
 def get_wallet_transactions(
     db,
     wallet_id,
