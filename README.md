@@ -54,38 +54,59 @@ It focuses on application reliability, financial data integrity, containerizatio
 
 ## 4. System Architecture
 
-The application follows a containerized service architecture.
+FinStack API follows a containerized service architecture managed through Docker Compose.
+
+### Application and Infrastructure Architecture
 
 ```mermaid
 flowchart TB
-    U[API Client / User] --> API[FastAPI Application]
+    CLIENT[API Client / User]
 
-    subgraph Docker Compose Environment
-        API --> DB[(PostgreSQL Database)]
+    subgraph DOCKER["Docker Compose Environment"]
+        API["FastAPI Application"]
+        MIG["Alembic Migration Service"]
+        DB[("PostgreSQL Database")]
+        PV[("PostgreSQL Persistent Volume")]
+        PROM["Prometheus"]
+        PROMVOL[("Prometheus Data Volume")]
+        GRAF["Grafana"]
+        GRAFVOL[("Grafana Data Volume")]
 
-        MIG[Alembic Migration Service] --> DB
+        MIG -->|"Applies schema migrations"| DB
+        API -->|"Reads and writes data"| DB
+        DB --- PV
 
-        API --> PROM[Prometheus]
-        PROM --> GRAF[Grafana]
-
-        DB --> VOL[(Persistent Database Volume)]
+        PROM -->|"Scrapes /metrics"| API
+        PROM --- PROMVOL
+        GRAF -->|"Queries metrics"| PROM
+        GRAF --- GRAFVOL
     end
 
-    GH[GitHub Repository] --> CI[GitHub Actions]
-    CI --> TEST[Automated Tests]
-    TEST --> BUILD[Docker Image Build]
+    CLIENT -->|"HTTP / REST API"| API
+
+    subgraph CICD["Continuous Integration"]
+        GH["GitHub Repository"]
+        CI["GitHub Actions"]
+        TEST["Automated Tests"]
+        BUILD["Docker Image Build"]
+
+        GH --> CI
+        CI --> TEST
+        TEST --> BUILD
+    end
 ```
 
 ### Architecture Components
 
-- **FastAPI:** Handles HTTP requests, authentication, wallet operations, and transaction processing.
-- **PostgreSQL:** Stores users, wallets, and transaction records.
+- **FastAPI:** Handles authentication, wallet management, transaction processing, and HTTP requests.
+- **PostgreSQL:** Stores users, wallets, and financial transaction records.
 - **Alembic:** Applies database schema migrations before the API starts.
 - **Docker:** Packages the application and its runtime dependencies.
-- **Docker Compose:** Coordinates the application services and their dependencies.
-- **Prometheus:** Collects application performance and availability metrics.
-- **Grafana:** Displays application metrics through an observability dashboard.
-- **GitHub Actions:** Automates testing and Docker image builds whenever changes are pushed or pull requests are created against the main branch.
+- **Docker Compose:** Coordinates the API, database, migration, and monitoring services.
+- **Prometheus:** Scrapes application metrics from the API's `/metrics` endpoint.
+- **Grafana:** Queries Prometheus and visualizes application performance and availability.
+- **Persistent Volumes:** Preserve PostgreSQL, Prometheus, and Grafana data across container restarts.
+- **GitHub Actions:** Automates testing and Docker image builds when changes are pushed or pull requests target the main branch.
 
 ## 5. Repository Structure
 
@@ -93,40 +114,44 @@ flowchart TB
 finstack-api/
 │
 ├── app/
+│   ├── core/
+│   │   └── security.py
 │   ├── models/
 │   │   ├── user.py
 │   │   ├── wallet.py
 │   │   └── transaction.py
-│   │
 │   ├── routes/
 │   │   ├── auth.py
-│   │   ├── wallet.py
-│   │   └── transaction.py
-│   │
+│   │   ├── wallets.py
+│   │   └── transactions.py
 │   ├── schemas/
 │   │   ├── user.py
 │   │   ├── wallet.py
 │   │   └── transaction.py
-│   │
 │   ├── services/
-│   │   ├── auth_service.py
+│   │   ├── user_service.py
 │   │   ├── wallet_service.py
 │   │   └── transaction_service.py
-│   │
 │   ├── database.py
 │   └── main.py
 │
 ├── migrations/
 │   ├── versions/
-│   └── env.py
+│   ├── env.py
+│   ├── script.py.mako
+│   └── README
 │
 ├── monitoring/
 │   ├── prometheus/
 │   │   └── prometheus.yml
-│   │
 │   └── grafana/
 │       ├── dashboards/
+│       │   └── finstack-api.json
 │       └── provisioning/
+│           ├── dashboards/
+│           │   └── dashboard.yml
+│           └── datasources/
+│               └── prometheus.yml
 │
 ├── tests/
 │   ├── conftest.py
@@ -147,7 +172,6 @@ finstack-api/
 ├── requirements.txt
 └── README.md
 ```
-
 ## 6. Prerequisites
 
 Before running FinStack API locally, ensure the following tools are installed:
